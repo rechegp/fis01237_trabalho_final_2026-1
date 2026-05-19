@@ -1,0 +1,101 @@
+.include "macros/SetStack.inc"
+.include "m328pdef.inc" ; Define device ATmega328P
+.cseg
+.org 0x0000
+rjmp init
+
+; botão por led - cada led teria seu próprio botão
+
+; outro método: dois botões, um que seleciona e outro que confirma
+.org 0x0034
+
+init:
+
+; configuração Stack Pointer
+
+SetStack RAMEND, R16
+
+; Configuração PORTD para LEDS e botões
+
+clr R16
+sbr R16, 0x0F
+out DDRD, R16
+com R16
+out PORTD, R16
+
+; Configuração endereçamento indireto com deslocamento
+
+ldi ZL, LOW(SRAM_START)
+ldi ZH, HIGH(SRAM_START)
+
+clr R02 ; registrador contendo o deslocamento
+mov R03, R02 ; R03 será atualizado com a referência do valor máximo de R02 (tamanho da sequência na memória)
+
+rjmp game1_start
+
+
+game1_start:
+
+            rcall read_and_load_random_val
+            rcall read_sequence_from_sram
+
+
+
+read_and_load_random_val:    ; Lógica de enviar valor aleatório do ADC para o fim da sequência
+
+                         ldi R16, 0b0000_0_0_0_1  ; valor de R16 será o recebido da lógica de randomização do ADC
+                         cbr R16, 0xF0 ; garanto que bits mais significativos dos botões não sejam alterados
+                         std Z + R03, R16
+                         inc R03
+                         clr R02
+                         ret
+
+
+read_sequence_from_sram: ; Lógica de ler valores da sequência em ordem crescente
+
+                         cpse R02, R03
+                         ret
+                         ldd R17, Z + R02
+                         out PORTD, R17
+                         ; aqui, vamos precisar de um timer pro LED se manter aceso.
+                         ; Necessária uma subrotina de espera (uma para manter o LED aceso e outra para apagá-lo)
+
+                         clr R17
+                         out PORTD, R17 ; possibilidade de separar subrotina para usar com pressionamento dos botões
+                         inc R02
+                         rjmp read_sequence_from_sram
+
+read_buttons: ; Necessária lógica para debounce
+              clr R02 ; limpar R02 aqui para não perder o ponto da sequência
+             sbis PIND, 4
+             rjmp button_1_pressed
+             sbis PIND, 5
+             rjmp button_2_pressed
+             sbis PIND, 6
+             rjmp button_3_pressed
+             sbis PIND, 7
+             rjmp button_4_pressed
+             rjmp read_buttons ; se nenhum botão é pressionado, volta à leitura
+
+button_1_pressed:
+
+                 rcall debounce_filter
+                 sbic PIND, 4
+                 rjmp read_buttons
+
+                 ldi R17, 0b0000_0_0_0_1
+                 rjmp check_sequence
+
+
+check_sequence:
+
+               ldd R16, Z + R02
+               cpse R16, R17
+               rjmp game_over ; errou! Pode ser usada uma interrupção aqui.
+               cpse R02, R03 ; verificar se a sequência acabou
+               rjmp read_buttons
+               inc R02
+               rjmp read_and_load_random_val
+
+
+
