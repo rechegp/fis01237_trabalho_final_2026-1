@@ -2,6 +2,14 @@
 .org 0x0000
 rjmp init
 
+.include "macros/SetStack.inc"
+.include "m328pdef.inc" ; Define device ATmega328P
+.include "macros/debounce_filter.inc"
+
+.include "macros/reset_z_pointer.inc"
+.include "macros/flash_led_and_beep.inc"
+
+; arquivos .asm estão incluidos no final deste programa
 
 
 
@@ -12,12 +20,6 @@ rjmp init
 
 init:
 
-.include "macros/SetStack.inc"
-.include "m328pdef.inc" ; Define device ATmega328P
-.include "macros/debounce_filter.inc"
-
-.include "macros/reset_z_pointer.inc"
-.include "macros/flash_led_and_beep.inc"
 
 
 ; configuração Stack Pointer
