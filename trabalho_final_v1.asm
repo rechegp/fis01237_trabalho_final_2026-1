@@ -15,22 +15,24 @@ init:
 .include "macros/SetStack.inc"
 .include "m328pdef.inc" ; Define device ATmega328P
 .include "macros/debounce_filter.inc"
-.include "macros/debounce_wait.asm"
+
 .include "macros/reset_z_pointer.inc"
 .include "macros/flash_led_and_beep.inc"
-.include "macros/buzzer_on_off.asm"
 
 
 ; configuração Stack Pointer
 
 SetStack RAMEND, R16
 
-; Configuração PORTD para LEDS e botões
+; Configuração PORTC para LEDs e PORTD para botões
+
 
 clr R16
-sbr R16, 0x0F
 out DDRD, R16
-com R16
+out PORTC, R16
+sbr R16, 0x0F ; half-byte inferior usado para LEDs na porta C.
+out DDRC, R16
+com R16 ; half-byte superior usado para botões na porta D.
 out PORTD, R16
 
 ; Configuração endereçamento indireto com deslocamento
@@ -52,12 +54,11 @@ game1_start:
 read_and_load_random_val:    ; Lógica de enviar valor aleatório do ADC para o fim da sequência
 
                          ldi R16, 0b0000_0_0_0_1  ; valor de R16 será o recebido da lógica de randomização do ADC
-                         sbr R16, 0xF0 ; garanto que bits mais significativos dos botões não sejam alterados
+                         ;sbr R16, 0xF0 ; garanto que bits mais significativos dos botões não sejam alterados
                          st Z+, R16
                          inc R03
                          clr R02
                          reset_z_pointer ; reseta apontador Z (volta a começo da SRAM - necessário para ler a sequência depois)
-                         cp R03, R04
                          rjmp read_sequence_from_sram ; garante que será redireionado para leitura da sequência após primeira rodada
 
 
@@ -92,7 +93,7 @@ read_buttons: ; Verifica qual botão foi pressionado, e então encaminha a subro
 
 button_1_pressed:
 
-                 debounce_filter 0x01 ; usa timer 0, compara com valor chamado
+                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
                  sbic PIND, 4
                  rjmp read_buttons
 
@@ -101,7 +102,7 @@ button_1_pressed:
 
 button_2_pressed:
 
-                 debounce_filter 0x01 ; usa timer 0, compara com valor chamado
+                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
                  sbic PIND, 5
                  rjmp read_buttons
 
@@ -110,7 +111,7 @@ button_2_pressed:
 
 button_3_pressed:
 
-                 debounce_filter 0x01 ; usa timer 0, compara com valor chamado
+                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
                  sbic PIND, 6
                  rjmp read_buttons
 
@@ -119,7 +120,7 @@ button_3_pressed:
 
 button_4_pressed:
 
-                 debounce_filter 0x01 ; usa timer 0, compara com valor chamado
+                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
                  sbic PIND, 7
                  rjmp read_buttons
 
@@ -129,23 +130,40 @@ button_4_pressed:
 
 check_sequence:
                inc R02 ; lê o próximo índice da sequência. Só é possível chegar aqui quando o pressionamento de um botão é confirmado
-               sbr R20, 0xF0 ; liga bits do register para comparar com máscara da porta já presente na SRAM
+               ;sbr R20, 0xF0 ; liga bits do register para comparar com máscara da porta já presente na SRAM
                ld R16, Z+
                cpse R16, R20
                rjmp game_over ; errou! Pode ser usada uma interrupção aqui.
                flash_and_beep R20 ; se acertou, acende o LED respectivo ao botão que foi pressionado corretamente
-               cpse R02, R03 ; verificar se a sequência acabou
-               rjmp read_buttons
-               rjmp read_and_load_random_val
+               rjmp check_button_depressed ; encaminha a SR que verifica estado do botão
+
+
+
+check_button_depressed:
+
+                       in R21, PIND ; recebe valor da porta D
+                       cbr R21, 0x0F ; evita bug com o Arduino - registrador pode len PD0-1 como alto por causa de TX/RX
+                       cpi R21, 0xF0 ; verifica se botões não estão pressionados
+                       breq next_step ; encaminha a SR que verifica se a rodada acabou
+                       rjmp check_button_depressed ; prende no loop enquanto botão estiver sendo pressionado
+
+
+next_step:
+
+          cpse R02, R03 ; verificar se a sequência acabou
+          rjmp read_buttons
+          rjmp read_and_load_random_val
 
 game_over:
-          ser R16
-          out PORTD, R16
+          ldi R16, 0x0F
+          out PORTC, R16
           rjmp loop
 
 loop:
      nop
      rjmp loop
 
+.include "macros/debounce_wait.asm"
+.include "macros/buzzer_on_off.asm"
 
 
