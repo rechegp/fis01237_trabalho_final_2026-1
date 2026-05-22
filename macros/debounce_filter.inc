@@ -11,7 +11,7 @@
 	             clr    R16            ;se B4 estiver apertado (clear) segue o código.
 	             out    TCNT0,R16      ;zera o timer 0.
 	             ldi R17, @0           ;determina tempo de debounce
-	             rcall wait
+	             call wait
 	
 	pop R17
 	pop R16

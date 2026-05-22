@@ -5,6 +5,7 @@
 .include "macros/reset_z_pointer.inc" ; macro para redefinir valor padrão de register apontador Z
 .include "macros/flash_led_and_beep.inc" ; macro para piscar LEDs e tocar buzzer de acordo com leitura da memória
 .include "macros/adc_noise_to_led_opcode.inc" ; macro para converter entrada do ADC em opcode do LED
+.include "macros/wait_next_round.inc" ; macro para esperar tempo até iniciar nova rodada
 .cseg
 .org 0x0000
 rjmp init
@@ -50,12 +51,12 @@ init:
 
      debounce_filter 0x02 ; tempo suficiente para que ocorra interrupção causada pelo ADC, gravando valor "aleatório" para leitura
 
-     rjmp game1_start
+     jmp game1_start
 
 
 game1_start:
 
-            rjmp read_and_load_random_val
+            jmp read_and_load_random_val
 
 
 
@@ -161,6 +162,7 @@ next_step:
 
           cpse R02, R03 ; verificar se a sequência acabou
           rjmp read_buttons
+          timer_next_round ; chama macro de espera
           rjmp read_and_load_random_val
 
 game_over:
@@ -179,7 +181,7 @@ adc_interrupt:
               in R16, SREG
               push R16
 
-              lds R22, ADCH    ; salva valor de ADCH em R04
+              lds R22, ADCH    ; salva valor de ADCH em R22
               ;ldi R16, 0b1_1_1_0_1_111 ; igual ao valor enviado em init, apenas para re-ligar a interrupção
               ;sts ADCSRA, R16
 

@@ -8,7 +8,7 @@
 
 ; não precisa fazer comparação, o valor da porta é o que precisa ser enviado! O que precisa diferenciar é a lógica para o buzzer.
 
-      rcall config_timer
+      call config_timer
       rjmp led_beep_on
 
   config_timer:
@@ -34,9 +34,9 @@
 
               pop @0 ; pego meu register que escolho do stack pointer contendo informação de qual LED acender
               out PORTC, @0 ; envio sinal para a porta, acendendo o LED requisitado
-              ; rcall buzzer_on @0 ; aqui, chamo função que irei usar para acionar o buzzer. Não está feita por enquanto
+              ; call buzzer_on @0 ; aqui, chamo função que irei usar para acionar o buzzer. Não está feita por enquanto
               push @0 ; valor retorna ao SP para usar na SR led_beep_off (usado na função para o buzzer)
-              rcall reset_timer ; reiniciar timer antes de entrar na SR de aguardo
+              call reset_timer ; reiniciar timer antes de entrar na SR de aguardo
               ldi R16, 0x1E ; ajuste da comparação do timer - tempo ligado - para flash usar 0x1E
               rjmp wait_for_timer ; entra na SR para aguardar o timer acabar
 
@@ -56,9 +56,9 @@
                clr R16 ; desliga LEDs, mas mantém pull-up interno dos botões configurados
                out PORTC, R16 ; envia sinal à porta, desligando os LEDs
                pop @0 ; pego @0 do SP para usar na macro do buzzer
-               ;rcall buzzer_off @0; implementar aqui lógica para desligar buzzer depois
+               ;call buzzer_off @0; implementar aqui lógica para desligar buzzer depois
                inc R19 ; usado na SR wait_for_timer para que não volte à esta subrotina depois de desligar o LED
-               rcall reset_timer ; reseta o timer mais uma vez
+               call reset_timer ; reseta o timer mais uma vez
                ldi R16, 0x0F ; reconfigura timer para segurar por um certo período de tempo o desligamento - para flash usar 0x0F
                rjmp wait_for_timer
 
