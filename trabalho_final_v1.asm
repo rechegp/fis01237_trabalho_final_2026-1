@@ -1,48 +1,56 @@
+.include "m328pdef.inc" ; Define device ATmega328P
+.include "macros/SetStack.inc" ; macro Stack Pointer
+.include "macros/debounce_filter.inc" ; macro debounce filter de botões por software
+
+.include "macros/reset_z_pointer.inc" ; macro para redefinir valor padrão de register apontador Z
+.include "macros/flash_led_and_beep.inc" ; macro para piscar LEDs e tocar buzzer de acordo com leitura da memória
+.include "macros/adc_noise_to_led_opcode.inc" ; macro para converter entrada do ADC em opcode do LED
 .cseg
 .org 0x0000
 rjmp init
-
-
-
-
-; botão por led - cada led teria seu próprio botão
+; botão por LED - cada LED teria seu próprio botão
 
 ; outro método: dois botões, um que seleciona e outro que confirma
+.org 0x002A ; Usando interrupção do ADC para sempre guardar último valor gerado aleatoriamente
+rjmp adc_interrupt ; interrupção usada para armazenar último valor aleatório oriundo do ADC
+
 .org 0x0034
 
 init:
 
-.include "macros/SetStack.inc"
-.include "m328pdef.inc" ; Define device ATmega328P
-.include "macros/debounce_filter.inc"
+     ; configuração Stack Pointer
 
-.include "macros/reset_z_pointer.inc"
-.include "macros/flash_led_and_beep.inc"
+     SetStack RAMEND, R16
 
+     ; Configuração PORTC para LEDs e PORTD para botões
 
-; configuração Stack Pointer
+     clr R16
+     out DDRD, R16
+     out PORTC, R16
+     sbr R16, 0x0F ; half-byte inferior usado para LEDs na porta C.
+     out DDRC, R16
+     com R16 ; half-byte superior usado para botões na porta D.
+     out PORTD, R16
+     ldi R16, 0b00_110000 ; mantém ligados pinos 4 e 5 do multiplexador do ADC, mas desliga os outros para evitar conflitos com LEDs da porta C
+     sts DIDR0, R16
+     ldi R16, 0b11_1_0_0101 ; Usa referência de tensão do ADC em 1,1V; usa 8 bits; usa porta 5 do ADC para leitura do ruído
+     sts ADMUX, R16
+     ldi R16, 0b1_1_1_0_1_111 ; liga ADC e inicia conversão; auto-trigger desligado, enable interrupt ligado; prescaler em 64.
+     sts ADCSRA, R16
+     sei ; habilita global interupt (SREG)
+     clr R16 ; desliga MUX em modo comparação; ADC em modo free-running
+     sts ADCSRB, R16
 
-SetStack RAMEND, R16
+     ; Configuração endereçamento indireto com deslocamento
 
-; Configuração PORTC para LEDs e PORTD para botões
+     reset_z_pointer ; chama a macro respectiva
 
+     clr R03 ; R03 será atualizado com a referência do valor máximo de R02 (tamanho da sequência na memória)
+     mov R02, R03 ; R02 será usado como índice da sequência
 
-clr R16
-out DDRD, R16
-out PORTC, R16
-sbr R16, 0x0F ; half-byte inferior usado para LEDs na porta C.
-out DDRC, R16
-com R16 ; half-byte superior usado para botões na porta D.
-out PORTD, R16
+     debounce_filter 0x02 ; tempo suficiente para que ocorra interrupção causada pelo ADC, gravando valor "aleatório" para leitura
 
-; Configuração endereçamento indireto com deslocamento
-
-reset_z_pointer ; chama a macro respectiva
-
-clr R03 ; R03 será atualizado com a referência do valor máximo de R02 (tamanho da sequência na memória)
-mov R02, R03 ; R02 será usado como índice da sequência
-
-rjmp game1_start
+     rjmp game1_start
 
 
 game1_start:
@@ -53,9 +61,9 @@ game1_start:
 
 read_and_load_random_val:    ; Lógica de enviar valor aleatório do ADC para o fim da sequência
 
-                         ldi R16, 0b0000_0_0_0_1  ; valor de R16 será o recebido da lógica de randomização do ADC
-                         ;sbr R16, 0xF0 ; garanto que bits mais significativos dos botões não sejam alterados
-                         st Z+, R16
+
+                         obtain_random_from_adc R22, R23 ; macro que ajusta qual LED será aceso a partir do que é recebido do ADC (pela interrupção)
+                         st Z+, R23
                          inc R03
                          clr R02
                          reset_z_pointer ; reseta apontador Z (volta a começo da SRAM - necessário para ler a sequência depois)
@@ -129,6 +137,7 @@ button_4_pressed:
 
 
 check_sequence:
+
                inc R02 ; lê o próximo índice da sequência. Só é possível chegar aqui quando o pressionamento de um botão é confirmado
                ;sbr R20, 0xF0 ; liga bits do register para comparar com máscara da porta já presente na SRAM
                ld R16, Z+
@@ -160,8 +169,25 @@ game_over:
           rjmp loop
 
 loop:
+
      nop
      rjmp loop
+
+adc_interrupt:
+
+              push R16
+              in R16, SREG
+              push R16
+
+              lds R22, ADCH    ; salva valor de ADCH em R04
+              ;ldi R16, 0b1_1_1_0_1_111 ; igual ao valor enviado em init, apenas para re-ligar a interrupção
+              ;sts ADCSRA, R16
+
+              pop R16
+              out SREG, R16
+              pop R16
+
+              reti
 
 .include "macros/debounce_wait.asm"
 .include "macros/buzzer_on_off.asm"
