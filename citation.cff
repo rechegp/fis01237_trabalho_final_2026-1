@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Griebler Reche"
+  given-names: "Pedro"
+- family-names: "Jorge Kurban"
+  given-names: "Antonio"
+title: "Projeto Final de Sistemas Embarcados"
+version: 2.0.4
+date-released: 2026-06-30
+url: "https://github.com/rechegp/fis01237_trabalho_final_2026-1"
