@@ -1,0 +1,6 @@
+19/06:
+
+-> Otimizei subrotinas e macros (menos calls, jumps, etc.)
+-> ADC agora esta em modo single conversion (mais eficiente em consumo energético)
+-> Timers agora são desligados quando subrotinas/macros em que são chamados são encerradas. (Melhoria de eficiência energética)
+-> Comportamento do jogo base verificado, está tudo OK.

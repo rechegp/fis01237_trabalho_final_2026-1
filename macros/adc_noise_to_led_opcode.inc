@@ -5,8 +5,6 @@
 
        read_adc_register_input:
 
-                               push @0
-
                                cbr @0, 0xFC ; forço 6 MSBs da entrada do ADC a serem zero (failsafe)
                                cpi @0, 0b00000000 ; se 2 LSBs são 00, acende LED 0
                                breq led_0_on
@@ -38,7 +36,7 @@
 
        exit_macro:
 
-       pop @0
+       nop
 
 
 

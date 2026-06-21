@@ -6,6 +6,8 @@
 .include "macros/flash_led_and_beep.inc" ; macro para piscar LEDs e tocar buzzer de acordo com leitura da memória
 .include "macros/adc_noise_to_led_opcode.inc" ; macro para converter entrada do ADC em opcode do LED
 .include "macros/wait_next_round.inc" ; macro para esperar tempo até iniciar nova rodada
+
+; Subrotinas de Macros estão no final do código (arquivos .asm)
 .cseg
 .org 0x0000
 rjmp init
@@ -25,6 +27,9 @@ init:
 
      ; Configuração PORTC para LEDs e PORTD para botões
 
+
+     ldi R16, (1 << PINB3)
+     out DDRB, R16  ; habilita saída do buzzer (OC2A - pino 11 do Arduino Uno)
      clr R16
      out DDRD, R16
      out PORTC, R16
@@ -34,12 +39,12 @@ init:
      out PORTD, R16
      ldi R16, 0b00_110000 ; mantém ligados pinos 4 e 5 do multiplexador do ADC, mas desliga os outros para evitar conflitos com LEDs da porta C
      sts DIDR0, R16
-     ldi R16, 0b11_1_0_0101 ; Usa referência de tensão do ADC em 1,1V; usa 8 bits; usa porta 5 do ADC para leitura do ruído
-     sts ADMUX, R16
-     ldi R16, 0b1_1_1_0_1_111 ; liga ADC e inicia conversão; auto-trigger desligado, enable interrupt ligado; prescaler em 64.
+     ldi R16, 0b11_0_0_0101 ; Usa referência de tensão do ADC em 1,1V; usa modo 10 bits (só lê ADCL); usa porta 5 do ADC para leitura do ruído
+     sts ADMUX, R16  ; Debug: caso não funcione reverter para modo 8 bits
+     ldi R16, 0b1_1_0_0_1_111 ; liga ADC e inicia conversão; auto-trigger desligado, enable interrupt ligado; prescaler em 64.
      sts ADCSRA, R16
      sei ; habilita global interupt (SREG)
-     clr R16 ; desliga MUX em modo comparação; ADC em modo free-running
+     clr R16 ; desliga MUX em modo comparação; ADC em modo single conversion (pois autotrigger está desligado)
      sts ADCSRB, R16
 
      ; Configuração endereçamento indireto com deslocamento
@@ -74,8 +79,9 @@ read_and_load_random_val:    ; Lógica de enviar valor aleatório do ADC para o 
 read_sequence_from_sram: ; Lógica de ler valores da sequência em ordem crescente
 
 
-                         cp R02, R03
-                         breq reset_sequence_index ; vai para próxima etapa de transição
+                         cpse R02, R03
+                         cpse R02, R02  ; truque para pular linha garantidamente
+                         rjmp reset_sequence_index ; vai para próxima etapa de transição
                          ld R20, Z+
                          flash_and_beep R20 ; macro para piscar LEDs e fazer o beep de acordo com a LED acesa
                          inc R02
@@ -102,7 +108,7 @@ read_buttons: ; Verifica qual botão foi pressionado, e então encaminha a subro
 
 button_1_pressed:
 
-                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
+                 debounce_filter 0xFF ; usa timer 0, compara com valor chamado
                  sbic PIND, 4
                  rjmp read_buttons
 
@@ -111,7 +117,7 @@ button_1_pressed:
 
 button_2_pressed:
 
-                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
+                 debounce_filter 0xFF ; usa timer 0, compara com valor chamado
                  sbic PIND, 5
                  rjmp read_buttons
 
@@ -120,7 +126,7 @@ button_2_pressed:
 
 button_3_pressed:
 
-                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
+                 debounce_filter 0xFF ; usa timer 0, compara com valor chamado
                  sbic PIND, 6
                  rjmp read_buttons
 
@@ -129,7 +135,7 @@ button_3_pressed:
 
 button_4_pressed:
 
-                 debounce_filter 0x7D ; usa timer 0, compara com valor chamado
+                 debounce_filter 0xFF ; usa timer 0, compara com valor chamado
                  sbic PIND, 7
                  rjmp read_buttons
 
@@ -140,7 +146,6 @@ button_4_pressed:
 check_sequence:
 
                inc R02 ; lê o próximo índice da sequência. Só é possível chegar aqui quando o pressionamento de um botão é confirmado
-               ;sbr R20, 0xF0 ; liga bits do register para comparar com máscara da porta já presente na SRAM
                ld R16, Z+
                cpse R16, R20
                rjmp game_over ; errou! Pode ser usada uma interrupção aqui.
@@ -152,7 +157,7 @@ check_sequence:
 check_button_depressed:
 
                        in R21, PIND ; recebe valor da porta D
-                       cbr R21, 0x0F ; evita bug com o Arduino - registrador pode len PD0-1 como alto por causa de TX/RX
+                       cbr R21, 0x0F ; evita bug com o Arduino - registrador pode ler PD0-1 como alto por causa de TX/RX
                        cpi R21, 0xF0 ; verifica se botões não estão pressionados
                        breq next_step ; encaminha a SR que verifica se a rodada acabou
                        rjmp check_button_depressed ; prende no loop enquanto botão estiver sendo pressionado
@@ -162,10 +167,13 @@ next_step:
 
           cpse R02, R03 ; verificar se a sequência acabou
           rjmp read_buttons
+          ldi R16, 0b1_1_0_0_1_111 ; mesma instrução da configuração, para iniciar conversão novamente
+          sts ADCSRA, R16
           timer_next_round ; chama macro de espera
           rjmp read_and_load_random_val
 
 game_over:
+
           ldi R16, 0x0F
           out PORTC, R16
           rjmp loop
@@ -181,9 +189,7 @@ adc_interrupt:
               in R16, SREG
               push R16
 
-              lds R22, ADCH    ; salva valor de ADCH em R22
-              ;ldi R16, 0b1_1_1_0_1_111 ; igual ao valor enviado em init, apenas para re-ligar a interrupção
-              ;sts ADCSRA, R16
+              lds R22, ADCL    ; salva valor de ADCL em R22 (reverter para ADCH se usar ADC em 8 bits)
 
               pop R16
               out SREG, R16
@@ -192,6 +198,5 @@ adc_interrupt:
               reti
 
 .include "macros/debounce_wait.asm"
-.include "macros/buzzer_on_off.asm"
 
 

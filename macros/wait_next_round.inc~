@@ -33,6 +33,8 @@
 
   exit_next_round_macro:
 
+                        clr R16
+                        sts TCCR1B, R16 ; desliga timer 1
                         pop R18
                         pop R17
                         pop R16
