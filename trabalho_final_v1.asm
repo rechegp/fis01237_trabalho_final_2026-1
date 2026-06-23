@@ -6,12 +6,16 @@
 .include "macros/flash_led_and_beep.inc" ; macro para piscar LEDs e tocar buzzer de acordo com leitura da memória
 .include "macros/adc_noise_to_led_opcode.inc" ; macro para converter entrada do ADC em opcode do LED
 .include "macros/wait_next_round.inc" ; macro para esperar tempo até iniciar nova rodada
+.include "macros/wait_game_over.inc" ; macro para esperar tempo para retornar ao menu inicial
 
 ; Subrotinas de Macros estão no final do código (arquivos .asm)
 .cseg
 .org 0x0000
 rjmp init
 ; botão por LED - cada LED teria seu próprio botão
+
+.org 0x0016
+rjmp timer1_ocra_match ; Usando esta interrupção para ver se o tempo limite entre pressionamentos esgotou
 
 ; outro método: dois botões, um que seleciona e outro que confirma
 .org 0x002A ; Usando interrupção do ADC para sempre guardar último valor gerado aleatoriamente
@@ -39,7 +43,7 @@ init:
      out PORTD, R16
      ldi R16, 0b00_110000 ; mantém ligados pinos 4 e 5 do multiplexador do ADC, mas desliga os outros para evitar conflitos com LEDs da porta C
      sts DIDR0, R16
-     ldi R16, 0b11_0_0_0101 ; Usa referência de tensão do ADC em 1,1V; usa modo 10 bits (só lê ADCL); usa porta 5 do ADC para leitura do ruído
+     ldi R16, 0b11_1_0_0101 ; Usa referência de tensão do ADC em 1,1V; usa modo 8 ou10 bits (só lê ADCH ou ADCL); usa porta 5 do ADC para leitura do ruído
      sts ADMUX, R16  ; Debug: caso não funcione reverter para modo 8 bits
      ldi R16, 0b1_1_0_0_1_111 ; liga ADC e inicia conversão; auto-trigger desligado, enable interrupt ligado; prescaler em 64.
      sts ADCSRA, R16
@@ -51,8 +55,17 @@ init:
 
      reset_z_pointer ; chama a macro respectiva
 
+     ; demais variáveis do programa
+
      clr R03 ; R03 será atualizado com a referência do valor máximo de R02 (tamanho da sequência na memória)
      mov R02, R03 ; R02 será usado como índice da sequência
+     clr R17 ; valor usado para definir o tempo (portanto dificuldade) do modo de jogo (pressionamento entre botões)
+     clr R22
+     clr R23
+     clr R24
+     clr R25
+     ser R26 ; sempre setado, usado para referência de compare da interrupção por tempo
+     clr R27 ; sempre zero, usado para limpar registers externos
 
      debounce_filter 0x02 ; tempo suficiente para que ocorra interrupção causada pelo ADC, gravando valor "aleatório" para leitura
 
@@ -60,7 +73,9 @@ init:
 
 
 game1_start:
-
+            ldi R17, 0xFF  ; valor definido de tempo para modo de jogo 1
+            sts OCR1AH, R17 ; carrega valor para temporizar o compare match para interrupção - TROCAR PARA OCR1AH no flash
+            clr R24 ; reinicia condição de game over
             jmp read_and_load_random_val
 
 
@@ -91,6 +106,15 @@ reset_sequence_index:
 
                      clr R02 ; limpa  R02 para ler desde o início da sequência (não pode ser feitos em subrotina com loop)
                      reset_z_pointer ; reseta apontador Z para fazer a verificação da sequência do jogador
+                     ldi R16, 0b00_0_00_101 ; configura prescaler do timer em 1024
+                     sts TCCR1B, R16
+                     ldi R16, 0b00_00_00_00 ; configura timer em modo normal
+                     sts TCCR1A, R16
+                     sts TCNT1L, R27 ; reset do timer 1 para contagem do tempo entre pressionamentos de botão
+                     sts TCNT1H, R27
+
+                     ldi R16, (1 << OCIE1A)
+                     sts TIMSK1, R16 ; liga a interrupção do timer 1
                      rjmp read_buttons ; Vai para espera dos botões
 
 read_buttons: ; Verifica qual botão foi pressionado, e então encaminha a subrotina específica
@@ -104,6 +128,8 @@ read_buttons: ; Verifica qual botão foi pressionado, e então encaminha a subro
              rjmp button_3_pressed
              sbis PIND, 7
              rjmp button_4_pressed
+             sbrc R24, 1 ; se R24 é 1, acabou o tempo!
+             rjmp game_over
              rjmp read_buttons ; se nenhum botão é pressionado, volta à leitura
 
 button_1_pressed:
@@ -148,14 +174,23 @@ check_sequence:
                inc R02 ; lê o próximo índice da sequência. Só é possível chegar aqui quando o pressionamento de um botão é confirmado
                ld R16, Z+
                cpse R16, R20
-               rjmp game_over ; errou! Pode ser usada uma interrupção aqui.
+               rjmp game_over ; errou! Fim de jogo.
+               sts TIMSK1, R27 ; desliga interrupção temporariamente (se for um acerto)
+               sts TCNT1L, R27 ; reinicia timer
+               sts TCNT1H, R27
+               clr R25 ; limpa flag usada para indicar tempo esgotado
                flash_and_beep R20 ; se acertou, acende o LED respectivo ao botão que foi pressionado corretamente
+               ldi R16, 0b00_0_00_101 ; reconfigura prescaler do timer em 1024
+               sts TCCR1B, R16
+               ldi R16, (1 << OCIE1A) ;religa a iterrupção para próxima rodada
+               sts TIMSK1, R16
                rjmp check_button_depressed ; encaminha a SR que verifica estado do botão
 
 
 
 check_button_depressed:
-
+                       sbrc R24, 1 ; verifica se jogador não segurou o botão por tempo demais!
+                       rjmp game_over
                        in R21, PIND ; recebe valor da porta D
                        cbr R21, 0x0F ; evita bug com o Arduino - registrador pode ler PD0-1 como alto por causa de TX/RX
                        cpi R21, 0xF0 ; verifica se botões não estão pressionados
@@ -167,15 +202,20 @@ next_step:
 
           cpse R02, R03 ; verificar se a sequência acabou
           rjmp read_buttons
-          ldi R16, 0b1_1_0_0_1_111 ; mesma instrução da configuração, para iniciar conversão novamente
+          ldi R16, 0b1_1_1_0_1_111 ; mesma instrução da configuração, para iniciar conversão novamente
           sts ADCSRA, R16
+          sts TIMSK1, R27 ; desabilita a interrupção do timer
+          sts TCCR1B, R27 ; desliga timer 1
+
           timer_next_round ; chama macro de espera
           rjmp read_and_load_random_val
 
-game_over:
+game_over: ; fim de jogo, retornar ao menu inicial
 
-          ldi R16, 0x0F
-          out PORTC, R16
+
+
+          timer_game_over
+
           rjmp loop
 
 loop:
@@ -183,13 +223,34 @@ loop:
      nop
      rjmp loop
 
+timer1_ocra_match:
+
+                  push R16
+                  in R16, SREG
+                  push R16
+
+                  com R25 ; inverte (completemento de 1) para indicar que passou um período de tempo predefinido
+                  cpse R25, R26 ; vê se tempo acabou (segunda passagem na interrupção)
+                  inc R24 ; será usado como condição de game over (fim do tempo!)
+                  sts TCNT1L, R27 ; limpa timer, conta novamente o tempo mais uma vez
+                  sts TCNT1H, R27
+
+                  pop R16
+                  out SREG, R16
+                  pop R16
+
+                  reti
+
+
+
+
 adc_interrupt:
 
               push R16
               in R16, SREG
               push R16
 
-              lds R22, ADCL    ; salva valor de ADCL em R22 (reverter para ADCH se usar ADC em 8 bits)
+              lds R22, ADCH    ; salva valor de ADCL em R22 (reverter para ADCH se usar ADC em 8 bits)
 
               pop R16
               out SREG, R16

@@ -14,21 +14,17 @@
 
                ; config timer 1 - temporização
 
-               ldi  R16,0b00_00_00_00
-               sts  TCCR1A,R16            ;Configura modo normal sem portas OC
                ldi  R16,0b00_0_00_101
                sts  TCCR1B,R16            ;Configura clk com prescaler de 1024
-               ldi  R16,0x0a              ; Ajusta R16 para 10
-               sts  OCR1AH,R16            ;Ajusta o comparador A high do timer 1 para 10
-               clr  R16                   ; Limpar R16
-               sts  OCR1AL,R16            ;Ajusta o comparador A low do timer 1 para 0
+               ldi  R16,0b00_00_00_00
+               sts  TCCR1A,R16            ;Configura modo normal sem portas OC
 
                ; config timer 2 - onda quadrada buzzer
 
-               ldi R16, 0b01_00_00_10 ; liga timer 2 em modo CTC com saída OC2A habilitada
-               sts TCCR2A, R16
                ldi R16, 0b00_0_00_110 ; prescaler em 256
                sts TCCR2B, R16
+               ldi R16, 0b01_00_00_10 ; liga timer 2 em modo CTC com saída OC2A habilitada
+               sts TCCR2A, R16
                clr R16
                sts OCR2A, R16
 
@@ -38,10 +34,9 @@
 
   reset_timer:
 
-              clr  R16
-              sts  TCNT1H,R16        ; Limpa timer 1H
-              sts  TCNT1L,R16        ; Limpa timer 1L
-              sts TCNT2, R16         ; Limpa timer 2
+              sts  TCNT1H,R27        ; Limpa timer 1H
+              sts  TCNT1L,R27        ; Limpa timer 1L
+              sts  TCNT2, R27        ; Limpa timer 2
 
               ret
 
@@ -90,8 +85,7 @@
   exit_macro:
 
              ; não faço pop do @0, pois já foi usado na SR led_beep_on
-
-             sts TCCR1B, R16 ; desliga timer 1 após fim da macro
+             sts TCCR1B, R27 ; desliga timer 1 após fim da macro
 
              pop R19
              pop R18

@@ -4,3 +4,11 @@
 -> ADC agora esta em modo single conversion (mais eficiente em consumo energético)
 -> Timers agora são desligados quando subrotinas/macros em que são chamados são encerradas. (Melhoria de eficiência energética)
 -> Comportamento do jogo base verificado, está tudo OK.
+
+23/06:
+
+-> Implementaçao do buzzer testada no projeto e funcional
+-> Debugging dos timers realizado (e para estar OK)
+-> Explicitaçao das variaveis na seçao principal de codigo
+-> Implementaçao de temporizador entre pressionamentos - OK
+-> Implementaçao de sonorizaçao de game over

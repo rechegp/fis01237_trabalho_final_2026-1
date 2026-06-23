@@ -2,17 +2,19 @@
 /home/rechegp/Documentos/ufrgs/2026-1/fis01237/trabalho_final/trabalho_final_v1.asm
 mainasm=trabalho_final_v1.asm
 file=trabalho_final_v1.lst,220,17,220
-file=trabalho_final_v1.asm,70,30,84
+file=trabalho_final_v1.asm,197,1,218
 file=macros/SetStack.inc,1,1,1
-file=macros/debounce_filter.inc,1,3,18
+file=macros/debounce_filter.inc,1,51,13
 file=macros/reset_z_pointer.inc,1,43,3
-file=macros/flash_led_and_beep.inc,54,16,82
+file=macros/flash_led_and_beep.inc,3,1,24
 file=macros/adc_noise_to_led_opcode.inc,1,1,1
-file=macros/wait_next_round.inc,2,46,2
-file=macros/debounce_wait.asm,1,22,4
+file=macros/wait_next_round.inc,1,1,15
+file=macros/wait_game_over.inc,1,31,15
+file=macros/debounce_wait.asm,1,1,3
 clock=1000000
 device-type=ATmega328P
 device-package=28-pin-PDIP
+include=trabalho_final_v1.asm B61
 windows=acePsTwz
 syhili=i255,,b;d16711680,,;k8421504,12632256,bi;c8421504,,;f128,,;l65280,,;r8388608,,b;z32896,65535,;n0,,;
 alert1=0,0,-1,-1,,0,0

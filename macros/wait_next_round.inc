@@ -4,23 +4,22 @@
                     push R16
                     push R17
                     push R18
-                    ldi  R16,0b00_00_00_00
-                    sts  TCCR1A,R16            ;Configura modo normal sem portas OC
+
+                    ; configuração timer 1 - tempo
+
                     ldi  R16,0b00_0_00_101
                     sts  TCCR1B,R16            ;Configura clk com prescaler de 1024
-                    ldi  R16,0x0a              ; Ajusta R16 para 10
-                    sts  OCR1AH,R16            ;Ajusta o comparador A high do timer 1 para 10
-                    clr  R16                   ; Limpar R16
-                    sts  OCR1AL,R16            ;Ajusta o comparador A low do timer 1 para 0
+                    ldi  R16,0b00_00_00_00
+                    sts  TCCR1A,R16            ;Configura modo normal sem portas OC
                     rjmp reset_next_round_timer
+
 
   reset_next_round_timer:
 
-              clr  R16               ; Limpa R16
-              sts  TCNT1H,R16        ; Limpa timer 1H
-              sts  TCNT1L,R16        ; Limpa timer 1L
-              ldi R16, 0x30          ; carrega tempo para aguardar até próxima rodada em R18
-              rjmp wait_for_next_round_timer
+                         sts  TCNT1H,R27        ; Limpa timer 1H
+                         sts  TCNT1L,R27        ; Limpa timer 1L
+                         ldi R16, 0x30          ; carrega tempo para aguardar até próxima rodada em R18
+                         rjmp wait_for_next_round_timer
 
 
   wait_for_next_round_timer:
@@ -33,8 +32,7 @@
 
   exit_next_round_macro:
 
-                        clr R16
-                        sts TCCR1B, R16 ; desliga timer 1
+                        sts TCCR1B, R27 ; desliga timer 1
                         pop R18
                         pop R17
                         pop R16
