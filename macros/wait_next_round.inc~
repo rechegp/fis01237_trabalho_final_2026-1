@@ -4,6 +4,7 @@
                     push R16
                     push R17
                     push R18
+                    push @0
 
                     ; configuração timer 1 - tempo
 
@@ -18,7 +19,8 @@
 
                          sts  TCNT1H,R27        ; Limpa timer 1H
                          sts  TCNT1L,R27        ; Limpa timer 1L
-                         ldi R16, 0x30          ; carrega tempo para aguardar até próxima rodada em R18
+                         ;ldi R16, 0x30          ; carrega tempo para aguardar até próxima rodada em R18
+                         pop @0 ; carrega tempo para aguardar até próxima rodada em R18
                          rjmp wait_for_next_round_timer
 
 
@@ -26,7 +28,7 @@
 
                  lds  R17,TCNT1L        ; leiruta do TCNT1L - remover uma dessas instruções para o teste final
                  lds  R18,TCNT1H        ; leitura do TCNT1H
-                 cpse R16,R18           ; compara com tempo (aqui comparei com TCNT1L para a simulação. O correto seria com TCNT1H)
+                 cpse @0,R18           ; compara com tempo (aqui comparei com TCNT1L para a simulação. O correto seria com TCNT1H)
                  rjmp wait_for_next_round_timer ; volta ao loop se tempo ainda não acabou
                  rjmp exit_next_round_macro ; encerra macro se já acabou período de lep e beep desligados
 

@@ -12,3 +12,13 @@
 -> Explicitaçao das variaveis na seçao principal de codigo
 -> Implementaçao de temporizador entre pressionamentos - OK
 -> Implementaçao de sonorizaçao de game over
+
+24/06:
+
+-> Consegui fazer a tela inicial!!!
+-> Cada botão representa um nível de dificuldade, testado tudo no simulador
+-> Tá quase pronto
+-> Usei interrupção do timer 1 compare match OCRB para animar os LEDs do menu
+-> Com um pouco mais de complexidade, consegui aproveitar a lógica de pressionamento de botões para encaminhar para subrotinas diferentes de acordo com se está no menu inicial ou não
+-> O tempo entre rodadas também é ajustado de acordo com a dificuldade selecionada!
+-> Agora é refinar e ver o que mais pode ser ajustado

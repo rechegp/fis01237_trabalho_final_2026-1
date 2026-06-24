@@ -37,14 +37,14 @@
                               ldi	R16,0b00_00_00_00
 	                            out TCCR0A,R16           ;Configura modo normal
 
-                    rjmp reset_game_over_timer
+                              rjmp reset_game_over_timer
 
   reset_game_over_timer:
 
                          sts  TCNT1H,R27        ; Limpa timer 1H
                          sts  TCNT1L,R27        ; Limpa timer 1L
-                         out TCNT0, R16         ; Limpa timer 0
-                         ldi R16, 0xFF          ; carrega tempo para aguardar até próxima rodada em R18
+                         out  TCNT0, R27        ; Limpa timer 0
+                         ldi R16, 0xFF          ; carrega tempo para aguardar até final da sequência
                          ldi R19, 0xFF          ; carrega tempo para os LEDs piscarem
                          rjmp wait_for_game_over_timer
 
@@ -54,7 +54,7 @@
                            lds  R17,TCNT1L        ; leiruta do TCNT1L - remover uma dessas instruções para o teste final
                            lds  R18,TCNT1H        ; leitura do TCNT1H
                            cpse R16,R18           ; compara com tempo (aqui comparei com TCNT1L para a simulação. O correto seria com TCNT1H)
-                           rjmp flash_leds ; volta ao loop se tempo ainda não acabou
+                           rjmp flash_leds        ; volta ao loop se tempo ainda não acabou
                            rjmp exit_game_over_macro ; encerra macro se já acabou período de lep e beep desligados
 
   flash_leds:
@@ -63,6 +63,7 @@
              cp R17, R19      ;compara com R19.
              brne flash_leds  ;volta a esperar se timer não chegou no valor esperado
              eor R20, R21     ; se LEDs estão ligados, desligam; se estão desligados, serão ligados
+             out PORTC, R16
              rjmp wait_for_game_over_timer
 
   exit_game_over_macro:
