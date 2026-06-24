@@ -63,7 +63,8 @@
              cp R17, R19      ;compara com R19.
              brne flash_leds  ;volta a esperar se timer não chegou no valor esperado
              eor R20, R21     ; se LEDs estão ligados, desligam; se estão desligados, serão ligados
-             out PORTC, R16
+             out PORTC, R20
+             out TCNT0, R27 ; reinicia timer 0
              rjmp wait_for_game_over_timer
 
   exit_game_over_macro:

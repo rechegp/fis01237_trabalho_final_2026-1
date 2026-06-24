@@ -169,6 +169,10 @@ gamemode_selected:
                   sts TIMSK1, R27      ; desliga a interrupção do OCRB match
                   out PORTC, R27       ; desliga LEDs do menu inicial
 
+                  ldi R16, 0x50        ; tempo para começo da partida
+
+                  timer_next_round R16
+
                   sbrc R20, 0
                   rjmp game1_start
                   sbrc R20, 1
